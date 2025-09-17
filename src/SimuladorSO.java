@@ -11,13 +11,8 @@ import java.util.*;
 public class SimuladorSO {
 
     public static void main(String[] args) {
-        // Ruta por defecto relativa a la raíz del proyecto
         String configPath = "config/ejemplo.json";
-
-        // Si el usuario pasa otra ruta por consola, la usamos
-        if (args.length >= 1) {
-            configPath = args[0];
-        }
+        if (args.length >= 1) configPath = args[0];
 
         try (Reader r = new FileReader(configPath)) {
             Gson gson = new GsonBuilder().create();

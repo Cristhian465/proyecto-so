@@ -7,50 +7,51 @@ public class RoundRobin implements Planificador {
     private final int quantum;
 
     public RoundRobin(int quantum) {
+        if (quantum < 1) throw new IllegalArgumentException("Quantum debe ser >= 1");
         this.quantum = quantum;
     }
 
     @Override
     public void ejecutar(List<Proceso> procesos) {
-        procesos.sort(Comparator.comparingInt(p -> p.llegada));
+        // orden inicial por llegada
+        List<Proceso> pendientes = new ArrayList<>(procesos);
+        pendientes.sort(Comparator.comparingInt((Proceso p) -> p.llegada).thenComparingInt(p -> p.pid));
 
-        Queue<Proceso> cola = new LinkedList<>();
+        Queue<Proceso> cola = new ArrayDeque<>();
         int tiempo = 0;
-        int index = 0;
+        int idxPendientes = 0;
+        int n = pendientes.size();
 
-        while (!cola.isEmpty() || index < procesos.size()) {
-            // encolar los que llegaron
-            while (index < procesos.size() && procesos.get(index).llegada <= tiempo) {
-                cola.add(procesos.get(index));
-                index++;
+        while (idxPendientes < n || !cola.isEmpty()) {
+            // encolar todos los que llegaron hasta ahora
+            while (idxPendientes < n && pendientes.get(idxPendientes).llegada <= tiempo) {
+                cola.add(pendientes.get(idxPendientes));
+                idxPendientes++;
             }
 
             if (cola.isEmpty()) {
-                tiempo++;
+                // si no hay listos, avanzar al siguiente evento de llegada
+                tiempo = pendientes.get(idxPendientes).llegada;
                 continue;
             }
 
-            Proceso actual = cola.poll();
-            if (actual.inicio == null) actual.inicio = tiempo;
+            Proceso p = cola.poll();
+            if (p.inicio == null) p.inicio = tiempo; // primer despacho
+            int ejec = Math.min(quantum, p.servicioRestante);
+            p.servicioRestante -= ejec;
+            tiempo += ejec;
 
-            int usado = 0;
-            while (usado < quantum && actual.servicioRestante > 0) {
-                // ejecutamos 1 unidad
-                actual.servicioRestante--;
-                tiempo++;
-                usado++;
-
-                // pueden llegar procesos en este tiempo
-                while (index < procesos.size() && procesos.get(index).llegada <= tiempo) {
-                    cola.add(procesos.get(index));
-                    index++;
-                }
+            // al avanzar tiempo, encolar los que llegaron durante este quantum
+            while (idxPendientes < n && pendientes.get(idxPendientes).llegada <= tiempo) {
+                cola.add(pendientes.get(idxPendientes));
+                idxPendientes++;
             }
 
-            if (actual.servicioRestante > 0) {
-                cola.add(actual); // aún queda, vuelve a la cola
+            if (p.servicioRestante == 0) {
+                p.fin = tiempo;
             } else {
-                actual.fin = tiempo; // terminó
+                // reinsertar al final de la cola
+                cola.add(p);
             }
         }
     }
